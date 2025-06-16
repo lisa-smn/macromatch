@@ -1,6 +1,6 @@
 # Macromatch 🤝
 
-**Macromatch** ist eine webbasierte Anwendung zur Verwaltung und Analyse von Kontaktdaten regionaler Unternehmen im Rahmen der *Studentischen INITIATIVE* an der Hochschule Macromedia.
+**Macromatch** ist eine webbasierte Anwendung zur Verwaltung und Analyse von Kontaktdaten regionaler Unternehmen im Rahmen der *Studentischen Initiative* an der Hochschule Macromedia.
 
 ## Funktionen
 
@@ -38,3 +38,6 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run app.py
 ```
+## Lizenz
+
+Veröffentlicht unter der [MIT-Lizenz](LICENSE).
