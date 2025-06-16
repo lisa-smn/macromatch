@@ -1,0 +1,1 @@
+# Dieses Modul initialisiert das Macromatch-Paket
