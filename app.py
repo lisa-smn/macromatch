@@ -16,7 +16,9 @@ from datetime import date
 from database import init_db, get_all_unternehmen, insert_unternehmen, update_unternehmen, delete_unternehmen
 
 # Initialisiere DB beim ersten Start
-init_db()
+
+# init_db()  # Nur einmal manuell ausführen!
+
 
 def status_farbe(status):
     farben = {
@@ -66,7 +68,7 @@ KONTAKTSTATUS = ["offen", "angeschrieben", "interessiert", "kein Interesse"]
 with st.form("unternehmen_formular"):
     name = st.text_input("Unternehmensname")
     groesse = st.selectbox("Größe", ["Startup", "Klein", "Mittel", "Groß"])
-    relevant = st.selectbox("Relevant für", STUDIENGAENGE, key="relevant_fuer_neu")
+    relevant = st.multiselect("Relevant für", STUDIENGAENGE, default=["Alle"], key="relevant_fuer_neu")
     branche = st.text_input("Branche")
     website = st.text_input("Website")
     kontakt_email = st.text_input("Kontakt-E-Mail")
@@ -89,75 +91,41 @@ with st.form("unternehmen_formular"):
             if kontakt_status != "offen"
             else None
         )
-
+        relevant_str = ", ".join(relevant)  # Liste in kommagetrennten String umwandeln
         insert_unternehmen((
-            name, groesse, relevant, branche, website, kontakt_email,
-            telefonnummer, standort, letzter_kontakt, kontakt_status, notizen
+        name, groesse, relevant_str, branche, website, kontakt_email,
+        telefonnummer, standort, letzter_kontakt, kontakt_status, notizen
         ))
+
 
         st.success("✅ Unternehmen hinzugefügt!")
 
 
-# === Daten filtern & anzeigen ===
-st.divider()
-st.subheader("🌟 Unternehmen filtern")
-
-STUDIENGAENGE = [
-    "Alle",
-    "Animation & Illustration",
-    "Brandmanagement",
-    "Business Management",
-    "Design",
-    "Eventmanagement",
-    "Fashion Management",
-    "Fußballmanagement",
-    "Immobilienwirtschaft",
-    "Journalismus",
-    "Marketingmanagement",
-    "Medien- und Kommunikationsdesign",
-    "Medienmanagement",
-    "Musikmanagement",
-    "Sportjournalismus",
-    "Sportmanagement",
-    "Wirtschaftspsychologie",
-    "Psychologie",
-    "Brand Management (M.A.)",
-    "Business Management (M.A.)",
-    "Design Management (M.A.)",
-    "Medien- und Kommunikationsmanagement (M.A.)",
-]
-
-GROESSEN = ["Alle", "Startup", "Klein", "Mittel", "Groß"]
-
-col1, col2 = st.columns(2)
-with col1:
-    studiengang_filter = st.selectbox("Studiengang auswählen", STUDIENGAENGE, key="filter_studiengang")
-with col2:
-    groesse_filter = st.selectbox("Unternehmensgröße auswählen", GROESSEN, key="filter_groesse")
-
-
+# === Alle Unternehmen anzeigen ===
 st.divider()
 st.subheader("📊 Alle Unternehmen")
 
-unternehmen_alle = get_all_unternehmen()
-unternehmen = [
-    u for u in unternehmen_alle
-    if (studiengang_filter == "Alle" or studiengang_filter in u[3])
-    and (groesse_filter == "Alle" or groesse_filter == u[1])
-]
+unternehmen = get_all_unternehmen()
 
-# - Filter: Studiengang, Unternehmensgröße
-
-if studiengang_filter == "Alle":
-    unternehmen = unternehmen_alle
-else:
-    unternehmen = [u for u in unternehmen_alle if u[3] in (studiengang_filter)]
-
+# === Ausgabe ===
 if unternehmen:
     df = pd.DataFrame(unternehmen, columns=[
         "ID", "Name", "Größe", "Relevanz", "Branche", "Website", "E-Mail",
         "Telefon", "Standort", "Letzter Kontakt", "Kontaktstatus", "Notizen"
     ])
+
+    suchbegriff = st.text_input("🔍 Nach Studiengang in 'Relevanz' filtern")
+
+    if suchbegriff:
+        df = df[df["Relevanz"].str.contains(suchbegriff, case=False, na=False)]
+
+    st.download_button(
+        label="⬇️ Alle Unternehmen als CSV exportieren",
+        data=df.to_csv(index=False),
+        file_name="unternehmen_export.csv",
+        mime="text/csv"
+    )
+
     def highlight_status(row):
         return [status_farbe(row["Kontaktstatus"]) if col == "Kontaktstatus" else "" for col in df.columns]
 
@@ -167,6 +135,7 @@ if unternehmen:
 
 else:
     st.info("Noch keine Einträge vorhanden.")
+
 
 # === Bearbeiten & Löschen ===
 st.divider()
@@ -182,7 +151,7 @@ if unternehmen:
         STUDIENGAENGE = [
             "Animation & Illustration", "Brandmanagement", "Business Management", "Design",
             "Eventmanagement", "Fashion Management", "Fußballmanagement", "Immobilienwirtschaft",
-            "International/Business", "Journalismus", "Marketingmanagement",
+            "International/Business Management", "Journalismus", "Marketingmanagement",
             "Medien- und Kommunikationsdesign", "Medienmanagement", "Musikmanagement", "Psychologie",
             "Sportjournalismus", "Sportmanagement", "Technologie/Coding", "Wirtschaftspsychologie",
             "Brand Management (M.A.)", "Business Management (M.A.)", "Design Management (M.A.)",
@@ -194,8 +163,22 @@ if unternehmen:
         with st.form("bearbeiten_formular"):
             name = st.text_input("Name", selected[1])
             groesse = st.selectbox("Größe", GROESSEN, index=GROESSEN.index(selected[2]))
-            relevant = st.selectbox("Relevanz", STUDIENGAENGE,
-                                    index=STUDIENGAENGE.index(selected[3]) if selected[3] in STUDIENGAENGE else 0)
+
+            # Sicherstellen, dass alle Werte in STUDIENGAENGE vorhanden sind
+            relevant_vorbelegt = []
+            if selected[3]:
+                relevant_vorbelegt = [
+                    eintrag.strip() for eintrag in selected[3].split(",")
+                    if eintrag.strip() in STUDIENGAENGE
+                ]
+
+            relevant = st.multiselect(
+                "Relevanz",
+                options=STUDIENGAENGE,
+                default=relevant_vorbelegt,
+                key="relevant_bearbeiten"
+            )
+
             branche = st.text_input("Branche", selected[4])
             website = st.text_input("Website", selected[5])
             email = st.text_input("E-Mail", selected[6])
@@ -218,13 +201,14 @@ if unternehmen:
             if col1.form_submit_button("📏 Änderungen speichern"):
                 letzter_kontakt = letzter_kontakt_input.isoformat() if letzter_kontakt_input else None
                 from database import update_unternehmen
+                relevant_str = ", ".join(relevant)
                 update_unternehmen((
-                    name, groesse, relevant, branche, website, email,
+                    name, groesse, relevant_str, branche, website, email,
                     telefon, standort, letzter_kontakt, kontakt_status,
                     notizen, selected[0]
                 ))
                 st.success("✅ Änderungen gespeichert.")
-                st.experimental_rerun()
+                st.rerun()
 
             if col2.form_submit_button("🗑️ Eintrag löschen"):
                 from database import delete_unternehmen
@@ -295,9 +279,14 @@ if unternehmen:
 
     with col2:
         st.markdown("#### Unternehmen nach Studiengang")
-        relevanz_count = df["Relevanz"].value_counts().reset_index()
-        relevanz_count.columns = ["Studiengang", "Anzahl"]
-        st.bar_chart(relevanz_count.set_index("Studiengang"))
+
+        # Leere Liste vorbereiten für alle Studiengänge
+        statistik_df = pd.DataFrame({
+            "Studiengang": STUDIENGAENGE[1:],  # ohne "Alle"
+            "Anzahl": [df["Relevanz"].str.contains(sg, case=False, na=False).sum() for sg in STUDIENGAENGE[1:]]
+        }).set_index("Studiengang")
+
+        st.bar_chart(statistik_df)
 
     kontakt_count = df["Kontaktstatus"].value_counts().reset_index()
     kontakt_count.columns = ["Kontaktstatus", "Anzahl"]

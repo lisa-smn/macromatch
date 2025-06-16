@@ -1,0 +1,6 @@
+# .gitignore
+venv/
+__pycache__/
+macromatch.db
+*.pyc
+*.DS_Store

@@ -16,7 +16,16 @@ def get_all_unternehmen():
         cursor.execute("SELECT * FROM unternehmen")
         return cursor.fetchall()
 
+def unternehmen_exists(name):
+    with connect() as conn, closing(conn.cursor()) as cursor:
+        cursor.execute("SELECT 1 FROM unternehmen WHERE name = ?", (name,))
+        return cursor.fetchone() is not None
+
+
 def insert_unternehmen(data):
+    if unternehmen_exists(data[0]):  # Name ist erstes Feld
+        print(f"⚠️ Unternehmen '{data[0]}' bereits vorhanden. Einfügen übersprungen.")
+        return
     with connect() as conn, closing(conn.cursor()) as cursor:
         cursor.execute("""
             INSERT INTO unternehmen (
@@ -25,6 +34,7 @@ def insert_unternehmen(data):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, data)
         conn.commit()
+
 
 def update_unternehmen(data):
     with connect() as conn, closing(conn.cursor()) as cursor:
